@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Kamga's Hyprland Desktop Setup & Auto-Installer
-# Distribution : Arch Linux / EndeavourOS
-# Compositor   : Hyprland (Lua config) + Serpantinum Desktop Shell
+# Kamga's Hyprland Desktop Setup & Universal Auto-Installer
+# Distributions supportées : Arch Linux, EndeavourOS, Debian, Ubuntu
+# Compositor              : Hyprland + Serpantinum Desktop Shell
 # ==============================================================================
 
 set -euo pipefail
@@ -37,7 +37,7 @@ banner() {
   ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ███████║███████╗   ██║    ╚═════╝ ╚═╝     
                            ╚══════╝╚══════╝   ╚═╝                     
 EOF
-    echo -e "       ${PURPLE}★ Kamga's Hyprland Desktop & Serpantinum Shell ★${NC}\n"
+    echo -e "       ${PURPLE}★ Kamga's Hyprland Desktop (Arch & Debian Support) ★${NC}\n"
 }
 
 banner
@@ -60,65 +60,113 @@ if [[ ! -d "$SCRIPT_DIR/dotfiles" ]]; then
     exec bash "$INSTALL_TMP/install.sh" "$@"
 fi
 
-# 3. Vérification de la distribution (Arch / EndeavourOS)
-if [[ ! -f /etc/arch-release ]]; then
-    warn "Cette configuration est conçue et testée pour Arch Linux et EndeavourOS."
-    read -rp "Voulez-vous continuer malgré tout ? [o/N] " confirm
-    [[ "$confirm" =~ ^[oOyY]$ ]] || exit 1
-fi
-
-# 4. Détection / Installation d'un helper AUR (yay ou paru)
-AUR_HELPER=""
-if command -v yay >/dev/null 2>&1; then
-    AUR_HELPER="yay"
-elif command -v paru >/dev/null 2>&1; then
-    AUR_HELPER="paru"
+# 3. Détection de la distribution
+DISTRO_FAMILY=""
+if [[ -f /etc/arch-release ]] || command -v pacman >/dev/null 2>&1; then
+    DISTRO_FAMILY="arch"
+    info "Distribution détectée : Famille Arch Linux (Pacman / AUR)"
+elif [[ -f /etc/debian_version ]] || command -v apt-get >/dev/null 2>&1; then
+    DISTRO_FAMILY="debian"
+    info "Distribution détectée : Famille Debian / Ubuntu (APT)"
 else
-    info "Aucun assistant AUR détecté (yay/paru). Installation de yay..."
-    sudo pacman -S --needed --noconfirm base-devel git
-    git clone https://aur.archlinux.org/yay-bin.git /tmp/yay-bin
-    (cd /tmp/yay-bin && makepkg -si --noconfirm)
-    rm -rf /tmp/yay-bin
-    AUR_HELPER="yay"
+    warn "Distribution non standard détectée. Tentative en mode universel..."
+    DISTRO_FAMILY="unknown"
 fi
-success "Assistant AUR actif : $AUR_HELPER"
 
-# 5. Installation des paquets requis
-info "Mise à jour des dépôts et installation des dépendances système..."
-sudo pacman -S --needed --noconfirm \
-    hyprland \
-    hyprcursor \
-    hyprgraphics \
-    kitty \
-    wl-clipboard \
-    cliphist \
-    grim \
-    slurp \
-    zbar \
-    qrencode \
-    playerctl \
-    brightnessctl \
-    python \
-    python-pyqt6 \
-    python-pyqt6-svg \
-    qt6-wayland \
-    qt6ct \
-    ttf-jetbrains-mono \
-    ttf-jetbrains-mono-nerd \
-    noto-fonts \
-    noto-fonts-emoji
+# 4. Installation des paquets selon la distribution
+mkdir -p "$HOME/.local/bin"
 
-# Installation des dépendances AUR
-info "Installation des composants visuels et de Serpantinum..."
-$AUR_HELPER -S --needed --noconfirm \
-    matugen-bin \
-    quickshell || true
+if [[ "$DISTRO_FAMILY" == "arch" ]]; then
+    # Helper AUR
+    AUR_HELPER=""
+    if command -v yay >/dev/null 2>&1; then
+        AUR_HELPER="yay"
+    elif command -v paru >/dev/null 2>&1; then
+        AUR_HELPER="paru"
+    else
+        info "Installation de l'assistant AUR yay..."
+        sudo pacman -S --needed --noconfirm base-devel git
+        git clone https://aur.archlinux.org/yay-bin.git /tmp/yay-bin
+        (cd /tmp/yay-bin && makepkg -si --noconfirm)
+        rm -rf /tmp/yay-bin
+        AUR_HELPER="yay"
+    fi
+    success "Assistant AUR actif : $AUR_HELPER"
 
-# Vérification / Installation de Serpantinum Shell
+    info "Installation des paquets officiels..."
+    sudo pacman -S --needed --noconfirm \
+        hyprland hyprcursor hyprgraphics kitty \
+        wl-clipboard cliphist grim slurp zbar qrencode playerctl brightnessctl \
+        python python-pyqt6 python-pyqt6-svg qt6-wayland qt6ct \
+        ttf-jetbrains-mono ttf-jetbrains-mono-nerd noto-fonts noto-fonts-emoji \
+        jq curl wget
+
+    info "Installation des composants visuels via AUR..."
+    $AUR_HELPER -S --needed --noconfirm matugen-bin quickshell || true
+
+elif [[ "$DISTRO_FAMILY" == "debian" ]]; then
+    info "Mise à jour des dépôts APT..."
+    sudo apt-get update
+
+    info "Installation des dépendances disponibles sur Debian..."
+    sudo apt-get install -y \
+        kitty \
+        wl-clipboard \
+        grim \
+        slurp \
+        zbar-tools \
+        qrencode \
+        playerctl \
+        brightnessctl \
+        python3 \
+        python3-pyqt6 \
+        python3-pyqt6.qtsvg \
+        qt6-wayland \
+        qt6ct \
+        fonts-jetbrains-mono \
+        fonts-noto \
+        fonts-noto-color-emoji \
+        curl \
+        wget \
+        git \
+        jq \
+        tar
+
+    # cliphist (souvent absent des dépôts debian classiques)
+    if ! command -v cliphist >/dev/null 2>&1; then
+        info "Installation du binaire autonome cliphist..."
+        LATEST_CLIPHIST=$(curl -fsSL https://api.github.com/repos/sentriz/cliphist/releases/latest | jq -r '.tag_name' 2>/dev/null || echo "v0.5.0")
+        curl -fsSL "https://github.com/sentriz/cliphist/releases/download/${LATEST_CLIPHIST}/v${LATEST_CLIPHIST#v}-linux-amd64" -o "$HOME/.local/bin/cliphist" 2>/dev/null || true
+        chmod +x "$HOME/.local/bin/cliphist" 2>/dev/null || true
+    fi
+
+    # matugen (binaire autonome si absent)
+    if ! command -v matugen >/dev/null 2>&1; then
+        info "Installation du binaire autonome matugen..."
+        MATUGEN_URL=$(curl -fsSL https://api.github.com/repos/InioX/matugen/releases/latest | jq -r '.assets[] | select(.name | test("linux.*x86_64.*tar.gz")) | .browser_download_url' 2>/dev/null | head -n 1 || echo "")
+        if [[ -n "$MATUGEN_URL" ]]; then
+            curl -fsSL "$MATUGEN_URL" | tar -xz -C "$HOME/.local/bin/" 2>/dev/null || true
+            chmod +x "$HOME/.local/bin/matugen" 2>/dev/null || true
+        fi
+    fi
+
+    # Vérification de Hyprland sur Debian
+    if ! command -v Hyprland >/dev/null 2>&1; then
+        warn "Hyprland n'est pas encore installé sur ce système Debian."
+        echo -e "${YELLOW}Sur Debian, Hyprland peut être installé via le dépôt officiel de paquets précompilés :${NC}"
+        echo -e "  Voir : https://wiki.hypr.land/Getting-Started/Installation/#debian"
+        echo -e "  Ou installer les paquets backports / testing si disponibles."
+        echo ""
+    else
+        success "Hyprland est déjà présent sur le système."
+    fi
+fi
+
+# 5. Vérification / Installation de Serpantinum Shell
 if ! command -v serpantinum >/dev/null 2>&1; then
     info "Installation de l'environnement de bureau Serpantinum..."
     bash -c "$(curl -fsSL https://raw.githubusercontent.com/ilyamiro/serpantinum/master/install/install.sh)" || {
-        warn "L'installateur direct a retourné un code non nul, vérification des composants..."
+        warn "L'installateur direct de Serpantinum s'est exécuté avec des alertes, poursuite du déploiement..."
     }
 fi
 

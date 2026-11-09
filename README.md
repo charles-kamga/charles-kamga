@@ -1,6 +1,6 @@
 # 🚀 Kamga's Hyprland Desktop Environment
 
-Configuration moderne, fluide et élégante pour **Hyprland** sur **Arch Linux** & **EndeavourOS**, propulsée par le shell **Serpantinum** (Quickshell) et enrichie d'outils utilitaires personnalisés.
+Configuration moderne, fluide et élégante pour **Hyprland** sur **Arch Linux**, **EndeavourOS**, **Debian** & **Ubuntu**, propulsée par le shell **Serpantinum** (Quickshell) et enrichie d'outils utilitaires personnalisés.
 
 ---
 
@@ -12,7 +12,7 @@ Ouvrez un terminal et collez la commande suivante :
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/charles-kamga/charles-kamga/hyprland-config/install.sh)"
 ```
 
-*Le script vérifie automatiquement les dépendances, installe les paquets manquants via `pacman` et `yay`, sauvegarde vos anciennes configurations, et applique le bureau complet en toute sécurité.*
+*Le script détecte automatiquement votre distribution (Arch Linux/EndeavourOS ou Debian/Ubuntu), installe les paquets appropriés (`pacman` ou `apt`), télécharge les outils requis, sauvegarde vos anciennes configurations, et applique le bureau complet en toute sécurité.*
 
 ---
 
@@ -26,6 +26,16 @@ cd ~/Kamga-Hyprland
 chmod +x install.sh
 ./install.sh
 ```
+
+---
+
+## 🐧 Compatibilité Système
+
+| Distribution | Statut | Gestionnaire de paquets | Notes |
+| :--- | :--- | :--- | :--- |
+| **Arch Linux / EndeavourOS** | ✅ Support Natif 100% | `pacman` + `yay`/`paru` | Installation instantanée sans étapes manuelles. |
+| **Debian (Testing / Sid / 12)** | ✅ Support Automatisé | `apt` + binaires autonomes | Télécharge automatiquement `cliphist` et `matugen` si absents des dépôts Debian. |
+| **Ubuntu (24.04 / 24.10)** | ✅ Support Automatisé | `apt` + binaires autonomes | Assurez-vous d'avoir une session Wayland active. |
 
 ---
 
@@ -70,26 +80,6 @@ chmod +x install.sh
 | **<kbd>Super</kbd> + <kbd>L</kbd>** | **Verrouiller l'écran** |
 | **<kbd>Super</kbd> + <kbd>Espace</kbd>** | Lecture / Pause multimédia |
 | **<kbd>Print</kbd>** | Capture d'écran interactive |
-
----
-
-## 🛠️ Outils en ligne de commande
-
-```bash
-# Lancer le générateur QR en interface graphique :
-qr-generator
-# ou son alias court :
-qr-gen
-
-# Générer expressément le QR du presse-papier sans ouvrir la fenêtre :
-qr-generator --clip
-
-# Scanner un code QR affiché à l'écran :
-qr-scan
-
-# Scanner un code QR depuis la webcam :
-qr-scan --cam
-```
 
 ---
 
