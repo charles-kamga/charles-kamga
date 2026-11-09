@@ -1,0 +1,679 @@
+#!/usr/bin/env python3
+"""
+qr-generator - Générateur de codes QR moderne pour Hyprland / Wayland.
+Conçu selon les principes UI/UX Pro Max :
+- Design Bento Grid avec hiérarchie visuelle stricte
+- Zéro emoji structurel : icônes vectorielles SVG Lucide haute définition
+- Mode sombre étagé (Obsidian #0f1016, surfaces #161722, accents Indigo/Cyan)
+- Détection intelligente du contenu (URL, Wi-Fi, Email, Texte brut)
+- Toast inline non-bloquant sans layout shift
+- Contrôles clavier complets (Échap, Ctrl+C, Ctrl+S, Ctrl+Entrée)
+- Compatibilité Wayland intégrale (wl-copy, wl-paste, Qt Wayland)
+"""
+
+import sys
+import os
+import argparse
+import subprocess
+import re
+from datetime import datetime
+
+# ==========================================
+# ICÔNES VECTORIELLES SVG (Style Lucide)
+# ==========================================
+SVG_ICONS = {
+    "qr": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>''',
+    "copy": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>''',
+    "download": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>''',
+    "paste": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>''',
+    "trash": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>''',
+    "check": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>''',
+    "globe": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>''',
+    "wifi": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.86a10 10 0 0 1 14 0"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/></svg>''',
+    "mail": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>''',
+    "text": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6.1H3"/><path d="M21 12.1H3"/><path d="M15.1 18H3"/></svg>'''
+}
+
+# ==========================================
+# UTILITAIRES SYSTÈME & WAYLAND
+# ==========================================
+def get_clipboard_text():
+    """Récupère le texte depuis le presse-papier Wayland."""
+    try:
+        res = subprocess.run(
+            ["wl-paste", "--no-newline"],
+            capture_output=True,
+            text=True,
+            timeout=1
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            return res.stdout.strip()
+    except Exception:
+        pass
+    return ""
+
+def generate_qr_bytes(text, scale=8, margin=2):
+    """Génère une image PNG de code QR via qrencode et renvoie les octets bruts."""
+    if not text:
+        return None
+    try:
+        res = subprocess.run(
+            ["qrencode", "-s", str(scale), "-m", str(margin), "-o", "-", "--", text],
+            capture_output=True,
+            check=True
+        )
+        return res.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Erreur qrencode: {e}", file=sys.stderr)
+        return None
+
+def copy_image_to_clipboard(png_bytes):
+    """Copie une image PNG dans le presse-papier Wayland."""
+    if not png_bytes:
+        return False
+    try:
+        proc = subprocess.Popen(
+            ["wl-copy", "--type", "image/png"],
+            stdin=subprocess.PIPE
+        )
+        proc.communicate(input=png_bytes)
+        return proc.returncode == 0
+    except Exception as e:
+        print(f"Erreur wl-copy: {e}", file=sys.stderr)
+        return False
+
+def send_notification(title, message, icon="preferences-system-search"):
+    """Envoie une notification système via notify-send."""
+    try:
+        subprocess.Popen(
+            ["notify-send", "-a", "QR Generator", "-i", icon, title, message, "-t", "4000"]
+        )
+    except Exception:
+        pass
+
+def detect_content_type(text):
+    """Analyse le contenu pour afficher un badge intelligent."""
+    t = text.strip()
+    if not t:
+        return ("none", "En attente", "#64748b")
+    if t.startswith("http://") or t.startswith("https://"):
+        return ("globe", "Lien Web", "#60a5fa")
+    if t.startswith("WIFI:"):
+        return ("wifi", "Réseau Wi-Fi", "#34d399")
+    if t.startswith("mailto:") or re.match(r"^[^@]+@[^@]+\.[^@]+$", t):
+        return ("mail", "Adresse E-mail", "#f472b6")
+    return ("text", "Texte brut", "#94a3b8")
+
+# ==========================================
+# CLI FAST MODE
+# ==========================================
+def launch_cli_clip():
+    """Mode CLI sans interface : lit le presse-papier, génère le QR et le copie en image."""
+    clip_text = get_clipboard_text()
+    if not clip_text:
+        send_notification("Générateur QR", "Aucun texte trouvé dans le presse-papier.", "dialog-warning")
+        print("Erreur : Aucun texte trouvé dans le presse-papier.", file=sys.stderr)
+        sys.exit(1)
+
+    png_bytes = generate_qr_bytes(clip_text)
+    if png_bytes and copy_image_to_clipboard(png_bytes):
+        preview = clip_text[:35] + ("..." if len(clip_text) > 35 else "")
+        send_notification("Code QR copié", f"Image générée et copiée : {preview}", "emblem-default")
+        print("Image du code QR copiée dans le presse-papier.")
+    else:
+        send_notification("Générateur QR", "Échec de génération du code QR", "dialog-error")
+        sys.exit(1)
+
+# ==========================================
+# INTERFACE GRAPHIQUE BENTO UI/UX PRO MAX
+# ==========================================
+def launch_gui(initial_text=""):
+    from PyQt6.QtWidgets import (
+        QApplication, QWidget, QVBoxLayout, QHBoxLayout,
+        QLabel, QPlainTextEdit, QPushButton, QFileDialog, QFrame, QSizePolicy
+    )
+    from PyQt6.QtGui import QPixmap, QImage, QIcon, QFont, QKeySequence, QShortcut, QPainter
+    from PyQt6.QtSvg import QSvgRenderer
+    from PyQt6.QtCore import Qt, QTimer, QByteArray, QSize
+
+    def create_svg_icon(name, color="#ffffff", size=18):
+        """Convertit un SVG Lucide en QIcon vectoriel à la couleur spécifiée."""
+        svg_xml = SVG_ICONS.get(name, "")
+        if not svg_xml:
+            return QIcon()
+        colored_svg = svg_xml.replace('stroke="currentColor"', f'stroke="{color}"')
+        renderer = QSvgRenderer(QByteArray(colored_svg.encode("utf-8")))
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter)
+        painter.end()
+        return QIcon(pixmap)
+
+    def create_svg_pixmap(name, color="#ffffff", size=32):
+        """Convertit un SVG Lucide en QPixmap."""
+        svg_xml = SVG_ICONS.get(name, "")
+        if not svg_xml:
+            return QPixmap()
+        colored_svg = svg_xml.replace('stroke="currentColor"', f'stroke="{color}"')
+        renderer = QSvgRenderer(QByteArray(colored_svg.encode("utf-8")))
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter)
+        painter.end()
+        return pixmap
+
+    app = QApplication(sys.argv)
+    app.setApplicationName("qr-generator")
+    app.setDesktopFileName("qr-generator")
+
+    if not initial_text:
+        initial_text = get_clipboard_text()
+
+    class QRStudioWindow(QWidget):
+        def __init__(self, start_text=""):
+            super().__init__()
+            self.current_png_bytes = None
+            self.init_ui(start_text)
+
+        def init_ui(self, start_text):
+            self.setObjectName("qrStudioRoot")
+            self.setWindowTitle("Générateur QR Studio")
+            self.setMinimumSize(460, 620)
+            self.resize(470, 630)
+
+            # Feuille de style globale Bento Dark
+            self.setStyleSheet("""
+                QWidget#qrStudioRoot {
+                    background-color: #0f1016;
+                    color: #f1f5f9;
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                }
+                QFrame.bentoCard {
+                    background-color: #161722;
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    border-radius: 14px;
+                }
+                QPlainTextEdit {
+                    background-color: #0d0e14;
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    border-radius: 10px;
+                    padding: 10px;
+                    color: #f8fafc;
+                    font-size: 13px;
+                    line-height: 1.4;
+                    selection-background-color: #3730a3;
+                }
+                QPlainTextEdit:focus {
+                    border: 1.5px solid #6366f1;
+                }
+                QPushButton.btnPrimary {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4f46e5, stop:1 #6366f1);
+                    color: #ffffff;
+                    border: 1px solid rgba(255, 255, 255, 0.15);
+                    border-radius: 10px;
+                    padding: 10px 18px;
+                    font-size: 13px;
+                    font-weight: 600;
+                    text-align: center;
+                }
+                QPushButton.btnPrimary:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4338ca, stop:1 #4f46e5);
+                }
+                QPushButton.btnPrimary:pressed {
+                    background-color: #3730a3;
+                }
+                QPushButton.btnPrimary:disabled {
+                    background: #1f2130;
+                    color: #4b5563;
+                    border: 1px solid rgba(255, 255, 255, 0.04);
+                }
+                QPushButton.btnSecondary {
+                    background-color: #212333;
+                    color: #e2e8f0;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 10px;
+                    padding: 10px 16px;
+                    font-size: 13px;
+                    font-weight: 500;
+                }
+                QPushButton.btnSecondary:hover {
+                    background-color: #2a2d40;
+                    color: #ffffff;
+                    border-color: rgba(255, 255, 255, 0.18);
+                }
+                QPushButton.btnSecondary:pressed {
+                    background-color: #1a1c29;
+                }
+                QPushButton.btnSecondary:disabled {
+                    background-color: #181924;
+                    color: #4b5563;
+                    border-color: rgba(255, 255, 255, 0.04);
+                }
+                QPushButton.btnGhost {
+                    background-color: rgba(255, 255, 255, 0.04);
+                    color: #94a3b8;
+                    border: 1px solid rgba(255, 255, 255, 0.06);
+                    border-radius: 6px;
+                    padding: 4px 10px;
+                    font-size: 11px;
+                    font-weight: 500;
+                }
+                QPushButton.btnGhost:hover {
+                    background-color: rgba(255, 255, 255, 0.09);
+                    color: #f1f5f9;
+                    border-color: rgba(255, 255, 255, 0.12);
+                }
+            """)
+
+            root_layout = QVBoxLayout(self)
+            root_layout.setContentsMargins(18, 18, 18, 18)
+            root_layout.setSpacing(12)
+
+            # ==========================================
+            # 1. EN-TÊTE BENTO
+            # ==========================================
+            header_layout = QHBoxLayout()
+            header_layout.setContentsMargins(2, 0, 2, 4)
+
+            # Logo & Titre
+            logo_label = QLabel()
+            logo_pix = create_svg_pixmap("qr", "#6366f1", 24)
+            logo_label.setPixmap(logo_pix)
+            logo_label.setStyleSheet("""
+                background-color: rgba(99, 102, 241, 0.12);
+                border: 1px solid rgba(99, 102, 241, 0.25);
+                border-radius: 8px;
+                padding: 4px;
+            """)
+
+            title_box = QVBoxLayout()
+            title_box.setSpacing(1)
+            title_text = QLabel("Générateur QR")
+            title_text.setStyleSheet("font-size: 15px; font-weight: 700; color: #f8fafc;")
+            subtitle_text = QLabel("Création & Exportation Rapide")
+            subtitle_text.setStyleSheet("font-size: 11px; color: #64748b; font-weight: 400;")
+            title_box.addWidget(title_text)
+            title_box.addWidget(subtitle_text)
+
+            header_layout.addWidget(logo_label)
+            header_layout.addSpacing(10)
+            header_layout.addLayout(title_box)
+            header_layout.addStretch()
+
+            # Badge Échap
+            esc_badge = QLabel("Échap")
+            esc_badge.setStyleSheet("""
+                background-color: rgba(255, 255, 255, 0.06);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                color: #94a3b8;
+                font-family: monospace;
+                font-size: 11px;
+                font-weight: 600;
+                border-radius: 6px;
+                padding: 4px 8px;
+            """)
+            esc_badge.setToolTip("Appuyez sur Échap pour fermer")
+            header_layout.addWidget(esc_badge)
+
+            root_layout.addLayout(header_layout)
+
+            # ==========================================
+            # 2. CARTE BENTO DE SAISIE
+            # ==========================================
+            input_card = QFrame()
+            input_card.setProperty("class", "bentoCard")
+            input_card_layout = QVBoxLayout(input_card)
+            input_card_layout.setContentsMargins(14, 12, 14, 12)
+            input_card_layout.setSpacing(8)
+
+            input_top_row = QHBoxLayout()
+            input_label = QLabel("CONTENU DE LA SOURCE")
+            input_label.setStyleSheet("font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: #94a3b8;")
+            input_top_row.addWidget(input_label)
+            input_top_row.addStretch()
+
+            # Actions Coller & Effacer (icônes vectorielles, zéro emoji)
+            self.btn_paste = QPushButton("Coller")
+            self.btn_paste.setProperty("class", "btnGhost")
+            self.btn_paste.setIcon(create_svg_icon("paste", "#94a3b8", 13))
+            self.btn_paste.setToolTip("Coller le contenu du presse-papier")
+            self.btn_paste.clicked.connect(self.paste_from_clipboard)
+
+            self.btn_clear = QPushButton("Effacer")
+            self.btn_clear.setProperty("class", "btnGhost")
+            self.btn_clear.setIcon(create_svg_icon("trash", "#94a3b8", 13))
+            self.btn_clear.setToolTip("Effacer le texte")
+            self.btn_clear.clicked.connect(self.clear_text)
+
+            input_top_row.addWidget(self.btn_paste)
+            input_top_row.addSpacing(4)
+            input_top_row.addWidget(self.btn_clear)
+            input_card_layout.addLayout(input_top_row)
+
+            # Zone de texte
+            self.text_edit = QPlainTextEdit()
+            self.text_edit.setPlaceholderText("Collez un lien, une configuration Wi-Fi ou saisissez du texte...")
+            self.text_edit.setMaximumHeight(74)
+            self.text_edit.textChanged.connect(self.on_text_changed)
+            input_card_layout.addWidget(self.text_edit)
+
+            # Ligne de statut sous la saisie (Type détecté + Compteur)
+            meta_row = QHBoxLayout()
+            self.badge_type = QLabel("Texte")
+            self.badge_type.setStyleSheet("""
+                background-color: rgba(255, 255, 255, 0.06);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                color: #94a3b8;
+                font-size: 11px;
+                font-weight: 500;
+                border-radius: 4px;
+                padding: 2px 8px;
+            """)
+
+            self.char_count_label = QLabel("0 caractère")
+            self.char_count_label.setStyleSheet("font-size: 11px; color: #64748b;")
+
+            meta_row.addWidget(self.badge_type)
+            meta_row.addSpacing(8)
+            meta_row.addWidget(self.char_count_label)
+            meta_row.addStretch()
+            input_card_layout.addLayout(meta_row)
+
+            root_layout.addWidget(input_card)
+
+            # ==========================================
+            # 3. CARTE BENTO DE L'APERÇU QR
+            # ==========================================
+            self.qr_card = QFrame()
+            self.qr_card.setProperty("class", "bentoCard")
+            qr_card_layout = QVBoxLayout(self.qr_card)
+            qr_card_layout.setContentsMargins(14, 16, 14, 14)
+            qr_card_layout.setSpacing(10)
+            qr_card_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            # Conteneur blanc pour contraste scanner optimal
+            self.white_frame = QFrame()
+            self.white_frame.setStyleSheet("""
+                background-color: #ffffff;
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.9);
+            """)
+            self.white_frame.setFixedSize(250, 250)
+            white_layout = QVBoxLayout(self.white_frame)
+            white_layout.setContentsMargins(10, 10, 10, 10)
+            white_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            self.qr_image_label = QLabel()
+            self.qr_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.qr_image_label.setFixedSize(230, 230)
+            white_layout.addWidget(self.qr_image_label)
+            qr_card_layout.addWidget(self.white_frame, alignment=Qt.AlignmentFlag.AlignCenter)
+
+            # État vide (affiché quand aucun texte n'est saisi)
+            self.empty_frame = QFrame()
+            self.empty_frame.setFixedSize(250, 250)
+            self.empty_frame.setStyleSheet("""
+                background-color: rgba(255, 255, 255, 0.02);
+                border: 1.5px dashed rgba(255, 255, 255, 0.12);
+                border-radius: 12px;
+            """)
+            empty_layout = QVBoxLayout(self.empty_frame)
+            empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty_layout.setSpacing(8)
+
+            empty_icon = QLabel()
+            empty_icon.setPixmap(create_svg_pixmap("qr", "#475569", 40))
+            empty_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            empty_title = QLabel("En attente de texte")
+            empty_title.setStyleSheet("font-size: 13px; font-weight: 600; color: #94a3b8;")
+            empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            empty_subtitle = QLabel("Tapez ou collez du contenu\npour générer le code QR")
+            empty_subtitle.setStyleSheet("font-size: 11px; color: #475569; text-align: center;")
+            empty_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            empty_layout.addWidget(empty_icon)
+            empty_layout.addWidget(empty_title)
+            empty_layout.addWidget(empty_subtitle)
+            qr_card_layout.addWidget(self.empty_frame, alignment=Qt.AlignmentFlag.AlignCenter)
+
+            # Métadonnées techniques sous l'image
+            self.meta_info_label = QLabel("PNG · 256×256 px · Correction d'erreur ECC M")
+            self.meta_info_label.setStyleSheet("font-size: 11px; color: #64748b; font-weight: 400;")
+            self.meta_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            qr_card_layout.addWidget(self.meta_info_label)
+
+            root_layout.addWidget(self.qr_card)
+
+            # ==========================================
+            # 4. BANNIÈRE TOAST INTERNE (Micro-feedback)
+            # ==========================================
+            self.toast_banner = QLabel("")
+            self.toast_banner.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.toast_banner.setStyleSheet("""
+                background-color: rgba(16, 185, 129, 0.12);
+                border: 1px solid rgba(16, 185, 129, 0.28);
+                color: #34d399;
+                font-size: 12px;
+                font-weight: 600;
+                border-radius: 8px;
+                padding: 7px 12px;
+            """)
+            self.toast_banner.setVisible(False)
+            root_layout.addWidget(self.toast_banner)
+
+            # ==========================================
+            # 5. ACTIONS PRINCIPALES DU BAS
+            # ==========================================
+            bottom_layout = QHBoxLayout()
+            bottom_layout.setSpacing(10)
+
+            # Bouton Primaire : Copier l'image
+            self.btn_copy = QPushButton("Copier l'image")
+            self.btn_copy.setProperty("class", "btnPrimary")
+            self.btn_copy.setIcon(create_svg_icon("copy", "#ffffff", 16))
+            self.btn_copy.setToolTip("Copier l'image PNG dans le presse-papier (Ctrl+C ou Entrée)")
+            self.btn_copy.clicked.connect(self.copy_qr_image)
+
+            # Bouton Secondaire : Enregistrer
+            self.btn_save = QPushButton("Enregistrer")
+            self.btn_save.setProperty("class", "btnSecondary")
+            self.btn_save.setIcon(create_svg_icon("download", "#e2e8f0", 16))
+            self.btn_save.setToolTip("Enregistrer le fichier PNG (Ctrl+S)")
+            self.btn_save.clicked.connect(self.save_qr_image)
+
+            bottom_layout.addWidget(self.btn_copy, 3)
+            bottom_layout.addWidget(self.btn_save, 2)
+            root_layout.addLayout(bottom_layout)
+
+            # ==========================================
+            # RACCOURCIS CLAVIER
+            # ==========================================
+            QShortcut(QKeySequence("Escape"), self, self.close)
+            QShortcut(QKeySequence("Ctrl+S"), self, self.save_qr_image)
+            QShortcut(QKeySequence("Ctrl+Return"), self, self.copy_qr_image)
+            QShortcut(QKeySequence("Ctrl+Shift+C"), self, self.copy_qr_image)
+
+            # Initialisation
+            if start_text:
+                self.text_edit.setPlainText(start_text)
+                self.text_edit.selectAll()
+            else:
+                self.update_ui_state("")
+
+        def on_text_changed(self):
+            text = self.text_edit.toPlainText().strip()
+            count = len(text)
+            self.char_count_label.setText(f"{count} caractère{'s' if count > 1 else ''}")
+
+            # Mise à jour du badge de type
+            icon_name, type_label, color = detect_content_type(text)
+            self.badge_type.setText(type_label)
+            self.badge_type.setStyleSheet(f"""
+                background-color: {color}18;
+                border: 1px solid {color}35;
+                color: {color};
+                font-size: 11px;
+                font-weight: 600;
+                border-radius: 4px;
+                padding: 2px 8px;
+            """)
+
+            self.update_ui_state(text)
+
+        def update_ui_state(self, text):
+            if not text:
+                self.current_png_bytes = None
+                self.white_frame.setVisible(False)
+                self.empty_frame.setVisible(True)
+                self.meta_info_label.setVisible(False)
+                self.btn_copy.setEnabled(False)
+                self.btn_save.setEnabled(False)
+                return
+
+            png_bytes = generate_qr_bytes(text)
+            if png_bytes:
+                self.current_png_bytes = png_bytes
+                pixmap = QPixmap()
+                pixmap.loadFromData(png_bytes, "PNG")
+                scaled = pixmap.scaled(
+                    230, 230,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                self.qr_image_label.setPixmap(scaled)
+                self.white_frame.setVisible(True)
+                self.empty_frame.setVisible(False)
+                self.meta_info_label.setVisible(True)
+                self.meta_info_label.setText(f"PNG · {pixmap.width()}×{pixmap.height()} px · Correction ECC M")
+                self.btn_copy.setEnabled(True)
+                self.btn_save.setEnabled(True)
+            else:
+                self.current_png_bytes = None
+                self.white_frame.setVisible(False)
+                self.empty_frame.setVisible(True)
+                self.meta_info_label.setVisible(False)
+                self.btn_copy.setEnabled(False)
+                self.btn_save.setEnabled(False)
+
+        def paste_from_clipboard(self):
+            clip = get_clipboard_text()
+            if clip:
+                self.text_edit.setPlainText(clip)
+                self.text_edit.selectAll()
+                self.text_edit.setFocus()
+
+        def clear_text(self):
+            self.text_edit.clear()
+            self.text_edit.setFocus()
+
+        def show_toast(self, message):
+            self.toast_banner.setText(f"✓  {message}")
+            self.toast_banner.setVisible(True)
+            QTimer.singleShot(2600, lambda: self.toast_banner.setVisible(False))
+
+        def copy_qr_image(self):
+            if not self.current_png_bytes:
+                return
+
+            ok = copy_image_to_clipboard(self.current_png_bytes)
+            try:
+                img = QImage()
+                img.loadFromData(self.current_png_bytes, "PNG")
+                QApplication.clipboard().setImage(img)
+                ok = True
+            except Exception:
+                pass
+
+            if ok:
+                self.show_toast("Image copiée dans le presse-papier")
+                send_notification("QR Code copié", "L'image du QR code a été copiée dans votre presse-papier.")
+
+        def save_qr_image(self):
+            if not self.current_png_bytes:
+                return
+
+            pictures_dir = os.path.expanduser("~/Pictures")
+            if not os.path.exists(pictures_dir):
+                pictures_dir = os.path.expanduser("~")
+
+            default_name = f"qrcode_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+            default_path = os.path.join(pictures_dir, default_name)
+
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Enregistrer le Code QR",
+                default_path,
+                "Images PNG (*.png)"
+            )
+
+            if file_path:
+                try:
+                    with open(file_path, "wb") as f:
+                        f.write(self.current_png_bytes)
+                    self.show_toast(f"Enregistré dans {os.path.basename(file_path)}")
+                    send_notification("QR Code enregistré", f"Enregistré dans : {os.path.basename(file_path)}")
+                except Exception as e:
+                    send_notification("Erreur d'enregistrement", str(e), "dialog-error")
+
+    win = QRStudioWindow(initial_text)
+    win.show()
+    sys.exit(app.exec())
+
+# ==========================================
+# POINT D'ENTRÉE PRINCIPAL
+# ==========================================
+def main():
+    parser = argparse.ArgumentParser(
+        description="Générateur de Code QR pour Wayland / Hyprland (UI/UX Pro Max)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Exemples :
+  qr-generator                      # Ouvre l'interface Bento (auto-remplie avec le presse-papier)
+  qr-generator "https://site.com"   # Ouvre l'interface avec ce lien
+  qr-generator --clip               # Mode express : copie directement l'image du QR du presse-papier
+  qr-generator -o mon_qr.png "texte" # Enregistre directement dans un fichier PNG
+        """
+    )
+    parser.add_argument("text", nargs="?", default="", help="Texte ou URL à encoder")
+    parser.add_argument("-c", "--clip", action="store_true", help="Générer directement depuis le presse-papier sans interface")
+    parser.add_argument("-o", "--output", help="Enregistrer l'image du QR code directement dans un fichier PNG")
+    parser.add_argument("--copy", action="store_true", help="Copier l'image générée dans le presse-papier et quitter")
+    parser.add_argument("--gui", action="store_true", help="Forcer l'ouverture de l'interface graphique")
+
+    args = parser.parse_args()
+
+    if args.clip:
+        launch_cli_clip()
+        return
+
+    if (args.output or args.copy) and not args.gui:
+        target_text = args.text or get_clipboard_text()
+        if not target_text:
+            print("Erreur : Aucun texte fourni ni trouvé dans le presse-papier.", file=sys.stderr)
+            sys.exit(1)
+
+        png_bytes = generate_qr_bytes(target_text)
+        if not png_bytes:
+            print("Erreur : Échec de la génération du code QR.", file=sys.stderr)
+            sys.exit(1)
+
+        if args.output:
+            with open(args.output, "wb") as f:
+                f.write(png_bytes)
+            print(f"Code QR enregistré dans : {args.output}")
+
+        if args.copy:
+            if copy_image_to_clipboard(png_bytes):
+                print("Image du code QR copiée dans le presse-papier.")
+            else:
+                sys.exit(1)
+        return
+
+    launch_gui(args.text)
+
+if __name__ == "__main__":
+    main()

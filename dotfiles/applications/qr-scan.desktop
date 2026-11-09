@@ -1,0 +1,18 @@
+[Desktop Entry]
+Name=Scanner de code QR
+Comment=Scanner un code QR à l'écran ou via la webcam
+Exec=qr-scan
+Icon=camera-photo
+Terminal=false
+Type=Application
+Categories=Utility;Graphics;
+Keywords=qr;code;barcode;scan;scanner;decoder;
+Actions=Cam;Clip;
+
+[Desktop Action Cam]
+Name=Scanner avec la Webcam
+Exec=qr-scan --cam
+
+[Desktop Action Clip]
+Name=Scanner depuis le presse-papier
+Exec=qr-scan --clip

@@ -1,0 +1,229 @@
+{
+  "general": {
+    "language": "en",
+    "avatarPath": "",
+    "muteSfx": false,
+    "weatherInterval": 15,
+    "weatherUnit": "metric"
+  },
+  "syspanel": {
+    "clipExpandProgress": 0,
+    "clipExpanded": false,
+    "clipState": 1
+  },
+  "bar": {
+    "position": "top",
+    "width": 100,
+    "height": 40,
+    "opacity": 100,
+    "style": "modular",
+    "time": {
+      "format": "HH:mm:ss"
+    },
+    "autohide": false,
+    "autohideTimeout": 1000,
+    "modules": {
+      "left": [
+        "sysmon",
+        "workspaces",
+        "media"
+      ],
+      "center": [
+        [
+          "timedate",
+          "weather",
+          "info",
+          "tray"
+        ]
+      ],
+      "right": [
+        [
+          "left",
+          "wifi",
+          "bt",
+          "vol",
+          "bat"
+        ]
+      ]
+    },
+    "distinctPills": false,
+    "centerByEdges": true,
+    "groupColors": {
+      "g_timedate": "#97ccf9",
+      "g_kb": "#4d4162",
+      "g_wifi": "#8ccff1",
+      "g_left": "#be95ff"
+    },
+    "menuItems": [
+      "settings",
+      "launcher",
+      "caffeine"
+    ],
+    "workspaceCount": 7,
+    "hideEmptyWorkspaces": false,
+    "workspaces": {
+      "perMonitorNumbering": false
+    },
+    "workspacesStyle": "pacman",
+    "timeShowDate": true,
+    "timeStyle": "material",
+    "visBarCount": 14,
+    "sysmonStyle": "circle",
+    "sysmonStats": [
+      "cpu",
+      "ram",
+      "temp",
+      "disk"
+    ],
+    "batStyle": "text",
+    "wifiStyle": "text",
+    "btStyle": "text",
+    "volStyle": "text",
+    "mediaWidth": 188
+  },
+  "theme": {
+    "fontFamily": "IBM Plex Mono",
+    "borderRadius": 10,
+    "activePreset": "Carbonfox",
+    "matugen": false,
+    "elementOpacity": 100,
+    "blurBackground": true,
+    "blurStyle": "blur",
+    "colors": {
+      "base": "#161616",
+      "blue": "#78a9ff",
+      "crust": "#0a0a0a",
+      "green": "#25be6a",
+      "mantle": "#121212",
+      "maroon": "#ff6f61",
+      "mauve": "#be95ff",
+      "overlay0": "#6f6f6f",
+      "overlay1": "#8d8d8d",
+      "overlay2": "#b6becb",
+      "peach": "#33b1ff",
+      "pink": "#ff7eb6",
+      "red": "#ee5396",
+      "sapphire": "#3ddbd9",
+      "subtext0": "#7b8496",
+      "subtext1": "#b6becb",
+      "surface0": "#262626",
+      "surface1": "#393939",
+      "surface2": "#525252",
+      "teal": "#3ddbd9",
+      "text": "#f2f4f8",
+      "yellow": "#08bdba"
+    }
+  },
+  "idle": {
+    "enabled": true,
+    "actions": {
+      "dim": {
+        "id": "dim",
+        "timeout": 150,
+        "enabled": true,
+        "respectInhibitors": true,
+        "mprisInhibit": true,
+        "command": "",
+        "resumeCommand": "",
+        "isCustom": false
+      },
+      "dpms": {
+        "id": "dpms",
+        "timeout": 450,
+        "enabled": true,
+        "respectInhibitors": true,
+        "mprisInhibit": true,
+        "command": "",
+        "resumeCommand": "",
+        "isCustom": false
+      },
+      "lock": {
+        "id": "lock",
+        "timeout": 300,
+        "enabled": true,
+        "respectInhibitors": true,
+        "mprisInhibit": true,
+        "command": "",
+        "resumeCommand": "",
+        "isCustom": false
+      },
+      "suspend": {
+        "id": "suspend",
+        "timeout": 600,
+        "enabled": true,
+        "respectInhibitors": true,
+        "mprisInhibit": true,
+        "command": "",
+        "resumeCommand": "",
+        "isCustom": false
+      }
+    },
+    "manualInhibit": false,
+    "caffeineStartTime": 0,
+    "caffeineEndTime": 0
+  },
+  "notifications": {
+    "dnd": false,
+    "position": "top right",
+    "sound": true
+  },
+  "display": {
+    "monitors": {}
+  },
+  "dock": {
+    "enabled": true,
+    "position": "bottom",
+    "onTop": true,
+    "elementSize": 44,
+    "floating": false,
+    "background": true,
+    "exclusive": false,
+    "autohide": false,
+    "smartAutohide": true,
+    "autohideTimeout": 1000,
+    "editing": false,
+    "apps": [
+      {
+        "name": "Kitty",
+        "comment": "Fast, feature-rich, GPU based terminal",
+        "desktop_id": "kitty",
+        "icon": "kitty"
+      },
+      {
+        "name": "Files",
+        "comment": "Access and organize files",
+        "desktop_id": "ski",
+        "icon": "ski"
+      }
+    ],
+    "overrideBoundsCorrection": false,
+    "enableScrolling": false,
+    "visibleElements": 7,
+    "scrollingElements": 7,
+    "maxVisibleElements": 7,
+    "maxElements": 7,
+    "hoverScale": 120,
+    "cascadeScale": false,
+    "focusRunning": true,
+    "showRunningIndicators": true,
+    "showRunningApps": false,
+    "runningScope": "auto"
+  },
+  "wallpaperDir": "~/Pictures/Wallpapers",
+  "lockscreen": {
+    "fingerprintEnabled": false,
+    "attemptLimitEnabled": false,
+    "passwordMaxAttempts": 5,
+    "fingerprintMaxAttempts": 5,
+    "backgroundMode": "custom",
+    "customBackground": ""
+  },
+  "launcher": {
+    "position": "top",
+    "width": 600,
+    "itemCount": 6,
+    "terminalCommand": "kitty -e",
+    "smartRanking": true,
+    "searchProvider": "google"
+  }
+}

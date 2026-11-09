@@ -1,0 +1,15 @@
+[Desktop Entry]
+Name=Générateur de code QR
+Comment=Générer un code QR depuis le presse-papier ou une saisie
+Exec=qr-generator
+Icon=preferences-system-search
+Terminal=false
+Type=Application
+Categories=Utility;Graphics;
+Keywords=qr;code;barcode;generator;encode;qrencode;
+StartupWMClass=qr-generator
+Actions=Clip;
+
+[Desktop Action Clip]
+Name=Générer directement depuis le presse-papier
+Exec=qr-generator --clip
