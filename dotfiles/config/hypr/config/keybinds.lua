@@ -48,6 +48,7 @@ hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("serpantinum volume raise"), { r
 hl.bind(mainMod .. " + F", hl.dsp.exec_cmd("firefox"))
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd("ski"))
 hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd(terminal))
+hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.exec_cmd("qr-generator"))
 
 hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("serpantinum reload"))
 hl.bind(mainMod .. " + C", hl.dsp.exec_cmd("serpantinum msg toggle clipboard"))
