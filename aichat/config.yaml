@@ -1,0 +1,27 @@
+model: ollama:geek:latest
+temperature: 0.0
+function_calling: true
+mapping_tools:
+  ops: 'execute_command,web_fetch,web_search'
+use_tools: ops
+save_session: false
+
+clients:
+  - type: openai-compatible
+    name: ollama
+    api_base: http://127.0.0.1:11434/v1
+    models:
+      - name: geek:latest
+        max_input_tokens: 8192
+        supports_function_calling: true
+        supports_vision: true
+      - name: scribe:latest
+        max_input_tokens: 8192
+        supports_function_calling: true
+      - name: huihui_ai/qwen3.5-abliterated:4B
+        max_input_tokens: 8192
+        supports_function_calling: true
+        supports_vision: true
+      - name: diag-qwen35-text:latest
+        max_input_tokens: 8192
+        supports_function_calling: true

@@ -1,0 +1,6 @@
+/bin/
+*.bak
+.env
+sessions/
+messages.md
+__pycache__/

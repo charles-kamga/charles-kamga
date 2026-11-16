@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+import json
+import os
+import re
+import sys
+import urllib.request
+
+def emit(text: str):
+    llm_out = os.environ.get("LLM_OUTPUT")
+    if llm_out:
+        with open(llm_out, "w", encoding="utf-8") as f:
+            f.write(text)
+    else:
+        print(text)
+
+def main():
+    if len(sys.argv) < 2:
+        emit("Error: missing JSON arguments")
+        return
+    try:
+        args = json.loads(sys.argv[1])
+    except Exception as e:
+        emit(f"Error parsing JSON arguments: {e}")
+        return
+
+    url = args.get("url", "").strip()
+    if not url:
+        emit("Error: empty url")
+        return
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AIChat-Geek/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+
+        if "<rss" in body or "<feed" in body:
+            titles = re.findall(r"<title><!\[CDATA\[(.*?)\]\]></title>|<title>(.*?)</title>", body)
+            clean_titles = [t[0] or t[1] for t in titles if (t[0] or t[1])]
+            pubdates = re.findall(r"<pubDate>(.*?)</pubDate>", body)
+            emit(json.dumps({"titles": clean_titles[:6], "pubDates": pubdates[:5]}, ensure_ascii=False, indent=2))
+            return
+
+        if "<html" in body.lower() or "<body" in body.lower():
+            body = re.sub(r"(?is)<(script|style|noscript|svg|header|footer|nav).*?>.*?</\1>", " ", body)
+            body = re.sub(r"(?s)<[^>]+>", " ", body)
+            body = re.sub(r"\s+", " ", body).strip()
+
+        emit(body[:3500])
+    except Exception as e:
+        emit(f"Erreur lors de la requête vers {url} : {e}")
+
+if __name__ == "__main__":
+    main()

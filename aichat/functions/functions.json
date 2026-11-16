@@ -1,0 +1,44 @@
+[
+  {
+    "name": "execute_command",
+    "description": "Exécute une commande shell sur le système Arch Linux local et retourne la sortie standard (stdout/stderr).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "La commande shell Linux à exécuter (ex: 'uname -r', 'ss -tuln', 'journalctl -n 20')"
+        }
+      },
+      "required": ["command"]
+    }
+  },
+  {
+    "name": "web_fetch",
+    "description": "Récupère le contenu texte, JSON ou flux RSS d'une URL sur Internet via une requête HTTP GET.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "L'URL complète (http/https) à interroger"
+        }
+      },
+      "required": ["url"]
+    }
+  },
+  {
+    "name": "web_search",
+    "description": "Effectue une recherche sur Internet et retourne les premiers résultats (titres, extraits et URLs).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Les mots-clés de la recherche Internet"
+        }
+      },
+      "required": ["query"]
+    }
+  }
+]

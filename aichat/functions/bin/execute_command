@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+import json
+import os
+import subprocess
+import sys
+
+def emit(text: str):
+    llm_out = os.environ.get("LLM_OUTPUT")
+    if llm_out:
+        with open(llm_out, "w", encoding="utf-8") as f:
+            f.write(text)
+    else:
+        print(text)
+
+def main():
+    if len(sys.argv) < 2:
+        emit("Error: missing JSON arguments")
+        return
+    try:
+        args = json.loads(sys.argv[1])
+    except Exception as e:
+        emit(f"Error parsing JSON arguments: {e}")
+        return
+
+    cmd = args.get("command", "").strip()
+    if not cmd:
+        emit("Error: empty command")
+        return
+
+    # Garde-fou de sécurité (protection nvme1n1 et commandes destructrices)
+    forbidden = ["mkfs", "wipefs", "dd of=/dev/", "nvme1n1", "rm -rf /", "cryptsetup luksFormat", "shred"]
+    if any(f in cmd for f in forbidden):
+        emit("ERREUR SÉCURITÉ : Commande bloquée par la politique de protection système.")
+        return
+
+    try:
+        res = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=20
+        )
+        out = (res.stdout + ("\n" + res.stderr if res.stderr else "")).strip()
+        if not out:
+            out = f"(Commande exécutée avec succès, code retour {res.returncode}, sortie vide)"
+        emit(out[:4000])
+    except subprocess.TimeoutExpired:
+        emit("Erreur : Délai d'attente dépassé (timeout 20s).")
+    except Exception as e:
+        emit(f"Erreur d'exécution : {e}")
+
+if __name__ == "__main__":
+    main()

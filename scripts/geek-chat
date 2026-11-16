@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Wrapper harnais ultra-léger AIChat pour Geek & Scribe
+set -euo pipefail
+
+export AICHAT_CONFIG_DIR="${AICHAT_CONFIG_DIR:-$HOME/.config/aichat}"
+AICHAT_BIN="${AICHAT_BIN:-$(command -v aichat || echo "$HOME/.local/bin/aichat")}"
+
+AGENT_NAME="$(basename "$0")"
+case "$AGENT_NAME" in
+    scribe|scribe-chat)
+        MODEL="ollama:scribe:latest"
+        ;;
+    *)
+        MODEL="ollama:geek:latest"
+        ;;
+esac
+
+exec "$AICHAT_BIN" -m "$MODEL" "$@"
