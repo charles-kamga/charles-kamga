@@ -1,19 +1,20 @@
-# Configuration des Agents Locaux Ollama (`geek` & `scribe`) + Harnais `aichat`
+# Configuration des Agents Locaux Ollama (`darwinx`, `geek` & `scribe`) + Harnais `aichat`
 
 Ce dépôt (branche `ollama-agents-config`) contient l'architecture complète, les **Modelfiles**, les **outils de Function Calling (Shell local & Internet)** et les **harnais CLI ultra-légers** optimisés pour **Arch Linux / EndeavourOS** (Hyprland) sur GPU **NVIDIA RTX 3050 Ti Laptop (4 Go VRAM)**.
 
 ---
 
-## 1. Architecture & Modèles Locaux
+## 1. Architecture & Trio d'Agents Locaux
 
 Afin d'éviter la saturation de la VRAM (4 Go) et la surcharge des harnais lourds (comme OpenCode ou Claude Code qui injectent 15 000+ tokens de prompt système et demandent `262144` tokens de contexte), cette configuration repose sur :
 - Une fenêtre de contexte calibrée à **`num_ctx 8192`** (garantissant **78 % à 91 % d'exécution GPU** et **20 à 26 tok/s**).
-- Deux agents spécialisés basés sur **Qwen 3.5 4B (`Q4_K_M`)** utilisant nativement le couple `RENDERER qwen3.5` / `PARSER qwen3.5` :
+- Trois agents spécialisés basés sur **Qwen 3.5 4B (`Q4_K_M`)** utilisant nativement le couple `RENDERER qwen3.5` / `PARSER qwen3.5` :
 
 | Agent | Modèle de base Ollama | Taille | Capacités | Rôle & Spécialisation |
 | :--- | :--- | :--- | :--- | :--- |
-| **`geek:latest`** | `huihui_ai/qwen3.5-abliterated:4B` | 3,3 Go | `completion`, `vision`, `tools`, `thinking` | Opérateur Red Team, Pentester, chercheur en vulnérabilités et ingénieur sécurité **Arch Linux / EndeavourOS** (sans refus moralisateurs sur labo/réseau local). |
-| **`scribe:latest`** | `diag-qwen35-text:latest` | 2,7 Go | `completion`, `tools`, `thinking` | Rédacteur technique et analyste de journaux système (`journalctl`, `/var/log/pacman.log`) haute vitesse (~25,5 tok/s). |
+| **`darwinx:latest`** | `diag-qwen35-text:latest` | 2,7 Go | `completion`, `tools`, `thinking` | **Copilote quotidien & SysAdmin Arch Linux** : retrouver des fichiers, rappeler une commande `pacman`/`systemd`, diagnostic rapide en 1 à 3 phrases. |
+| **`geek:latest`** | `huihui_ai/qwen3.5-abliterated:4B` | 3,3 Go | `completion`, `vision`, `tools`, `thinking` | **Opérateur Red Team & Sécurité Arch Linux** : scans réseau, analyse de vulnérabilités, PoC et durcissement (concis et basé uniquement sur les preuves d'outils). |
+| **`scribe:latest`** | `diag-qwen35-text:latest` | 2,7 Go | `completion`, `tools`, `thinking` | **Rédacteur technique & Analyste de logs** (`journalctl`, `/var/log/pacman.log`) haute vitesse (~25,5 tok/s). |
 
 ---
 
@@ -23,18 +24,19 @@ Afin d'éviter la saturation de la VRAM (4 Go) et la surcharge des harnais lourd
 .
 ├── install.sh                         # Script d'installation automatique (binaire aichat, configs, Modelfiles)
 ├── modelfiles/
-│   ├── Modelfile.geek                 # Définition Ollama de l'agent Geek (Red Team & Arch Linux)
+│   ├── Modelfile.darwinx              # Définition Ollama de l'agent DarwinX (Copilote OS & SysAdmin Arch)
+│   ├── Modelfile.geek                 # Définition Ollama de l'agent Geek (Red Team & Sécurité)
 │   └── Modelfile.scribe               # Définition Ollama de l'agent Scribe (Logs & Documentation)
 ├── aichat/
 │   ├── config.yaml                    # Configuration AIChat (ollama, max_input_tokens: 8192, function_calling)
 │   └── functions/
 │       ├── functions.json             # Schémas JSON des 3 outils exposés aux modèles
 │       └── bin/
-│           ├── execute_command        # Exécution de commandes shell Arch Linux (avec garde-fous de sécurité)
+│           ├── execute_command        # Exécution de commandes shell Arch Linux (avec garde-fous et filtre anti-bruit)
 │           ├── web_fetch              # Récupération HTTP GET (pages web nettoyées, JSON, flux RSS)
 │           └── web_search             # Recherche Internet en direct via DuckDuckGo (titres, extraits, URLs)
 └── scripts/
-    ├── geek-chat                      # Wrapper AIChat pour geek:latest (et scribe-chat via symlink)
+    ├── geek-chat                      # Wrapper AIChat multi-agents (darwinx-chat, geek-chat, scribe-chat)
     └── ollama-agent.py                # Harnais CLI natif (/api/chat, think=False) ultra-rapide
 ```
 

@@ -2,12 +2,8 @@
 # Wrapper harnais ultra-léger AIChat pour DarwinX, Geek & Scribe
 set -euo pipefail
 
-export AICHAT_CONFIG_DIR="${AICHAT_CONFIG_DIR:-/home/charles/Projects/Personal/Admin_OS/test-configs/aichat}"
-AICHAT_BIN="${AICHAT_BIN:-/home/charles/Projects/Personal/Admin_OS/test-configs/aichat/bin/aichat}"
-
-if command -v aichat >/dev/null 2>&1; then
-    AICHAT_BIN="$(command -v aichat)"
-fi
+export AICHAT_CONFIG_DIR="${AICHAT_CONFIG_DIR:-$HOME/.config/aichat}"
+AICHAT_BIN="${AICHAT_BIN:-$(command -v aichat || echo "$HOME/.local/bin/aichat")}"
 
 AGENT_NAME="$(basename "$0")"
 case "$AGENT_NAME" in

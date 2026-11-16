@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Script d'installation portable pour les agents locaux Ollama (Geek & Scribe) + Harnais AIChat
+# Script d'installation portable pour les agents locaux Ollama (DarwinX, Geek & Scribe) + Harnais AIChat
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,13 +28,15 @@ chmod +x "$USER_AICHAT_CFG/functions/bin/"*
 echo "==> [3/4] Installation des lanceurs CLI dans $LOCAL_BIN..."
 cp "$REPO_DIR/scripts/geek-chat" "$LOCAL_BIN/geek-chat"
 chmod +x "$LOCAL_BIN/geek-chat"
+ln -sf "$LOCAL_BIN/geek-chat" "$LOCAL_BIN/darwinx-chat"
 ln -sf "$LOCAL_BIN/geek-chat" "$LOCAL_BIN/scribe-chat"
 
 cp "$REPO_DIR/scripts/ollama-agent.py" "$LOCAL_BIN/ollama-agent"
 chmod +x "$LOCAL_BIN/ollama-agent"
 
-echo "==> [4/4] Construction des modèles Ollama (geek & scribe)..."
+echo "==> [4/4] Construction des modèles Ollama (darwinx, geek & scribe)..."
 if command -v ollama >/dev/null 2>&1; then
+    ollama create darwinx -f "$REPO_DIR/modelfiles/Modelfile.darwinx" || echo "  [!] Modèle de base pour darwinx manquant dans Ollama"
     ollama create geek -f "$REPO_DIR/modelfiles/Modelfile.geek" || echo "  [!] Modèle de base pour geek manquant dans Ollama"
     ollama create scribe -f "$REPO_DIR/modelfiles/Modelfile.scribe" || echo "  [!] Modèle de base pour scribe manquant dans Ollama"
 else
@@ -44,7 +46,8 @@ fi
 echo ""
 echo "Installation terminée avec succès !"
 echo "Commandes disponibles :"
-echo "  - geek-chat            (REPL interactif TUI avec Geek + Tool Calling)"
-echo "  - scribe-chat          (REPL interactif TUI avec Scribe + Tool Calling)"
+echo "  - darwinx-chat         (REPL interactif TUI avec DarwinX - Copilote OS)"
+echo "  - geek-chat            (REPL interactif TUI avec Geek - Red Team / Sec)"
+echo "  - scribe-chat          (REPL interactif TUI avec Scribe - Logs / Doc)"
 echo "  - ollama-agent         (Harnais CLI natif /api/chat ultra-rapide)"
 echo "  - aichat -e \"...\"      (Assistant de commandes shell Arch Linux)"
