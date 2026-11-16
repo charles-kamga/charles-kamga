@@ -1,4 +1,4 @@
-model: ollama:geek:latest
+model: ollama:darwinx:latest
 temperature: 0.0
 function_calling: true
 mapping_tools:
@@ -11,6 +11,9 @@ clients:
     name: ollama
     api_base: http://127.0.0.1:11434/v1
     models:
+      - name: darwinx:latest
+        max_input_tokens: 8192
+        supports_function_calling: true
       - name: geek:latest
         max_input_tokens: 8192
         supports_function_calling: true

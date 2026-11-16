@@ -39,14 +39,23 @@ def main():
             shell=True,
             capture_output=True,
             text=True,
-            timeout=20
+            timeout=25
         )
-        out = (res.stdout + ("\n" + res.stderr if res.stderr else "")).strip()
+        lines = (res.stdout + ("\n" + res.stderr if res.stderr else "")).splitlines()
+        # Si la commande a produit beaucoup de lignes (ex: find sans filtre), prioriser Documents/Projects/Desktop
+        if len(lines) > 40:
+            user_dirs = [l for l in lines if any(d in l for d in ["/Documents/", "/Projects/", "/Desktop/", "/Downloads/", "/School/"])]
+            other = [l for l in lines if not any(cache in l for cache in ["/.cache/", "/.local/share/uv/", "/node_modules/"])]
+            selected = user_dirs if user_dirs else other
+            out = "\n".join(selected[:35])
+        else:
+            out = "\n".join(lines[:40])
+
         if not out:
             out = f"(Commande exécutée avec succès, code retour {res.returncode}, sortie vide)"
         emit(out[:4000])
     except subprocess.TimeoutExpired:
-        emit("Erreur : Délai d'attente dépassé (timeout 20s).")
+        emit("Erreur : Délai d'attente dépassé (timeout 25s).")
     except Exception as e:
         emit(f"Erreur d'exécution : {e}")
 
